@@ -4,12 +4,12 @@
 #include <time.h>
 #include <string.h>
 
-//ESTRUTURAS
 typedef struct {
 	char nome[50];
 	int vida;
 	int vida_max;
 	int ataque;
+	int defesa;
 	int ouro;
 	int pocoes;
 } Jogador;
@@ -19,6 +19,7 @@ typedef struct {
 	int vida;
 	int vida_max;
 	int ataque;
+	int defesa;
 	int fase;
 	int fases_totais;
 	char frase[200];
@@ -37,12 +38,11 @@ typedef struct {
 	int efeito;
 } Item;
 
-//FUNÇÕES
 void mostrarVida(Jogador *j, Boss *b) {
-	printf("\n  [Jogador] %s: %d/%d HP | ATQ: %d\n", j->nome, j->vida, j->vida_max, j->ataque);
+	printf("\n  [Jogador] %s: %d/%d HP | ATQ: %d | DEF: %d\n", j->nome, j->vida, j->vida_max, j->ataque, j->defesa);
 	if (b != NULL) {
-		printf("  [Boss]    %s (Fase %d/%d): %d/%d HP | ATQ: %d\n",
-		       b->nome, b->fase, b->fases_totais, b->vida, b->vida_max, b->ataque);
+		printf("  [Boss]    %s (Fase %d/%d): %d/%d HP | ATQ: %d | DEF: %d\n",
+		       b->nome, b->fase, b->fases_totais, b->vida, b->vida_max, b->ataque, b->defesa);
 	}
 }
 
@@ -62,14 +62,14 @@ int combate(Jogador *j, Boss *b) {
 		scanf("%d", &op);
 		getchar();
 
-		//Ação do jogador
 		int esquiva_bem_sucedida = 0;
 
 		if (op == 1) {
-			int dano = j->ataque + (rand() % 5) - 2;
+			int dano_base = j->ataque + (rand() % 5) - 2;
+			int dano = dano_base - b->defesa;
 			if (dano < 1) dano = 1;
 			b->vida -= dano;
-			printf("  -> Você causou %d de dano em %s!\n", dano, b->nome);
+			printf("  -> Você causou %d de dano em %s! (Defesa de %s mitigou %d)\n", dano, b->nome, b->nome, b->defesa);
 		} else if (op == 2) {
 			if (j->pocoes > 0) {
 				j->pocoes--;
@@ -88,37 +88,39 @@ int combate(Jogador *j, Boss *b) {
 
 				printf("  -> Você esquivou com perfeição e recuperou 5 HP!\n");
 
-				int dano_esquiva = j->ataque + (rand() % 3) - 1;
+				int dano_esquiva_base = j->ataque + (rand() % 3) - 1;
+				int dano_esquiva = dano_esquiva_base - b->defesa;
 				if (dano_esquiva < 1) dano_esquiva = 1;
 				b->vida -= dano_esquiva;
 				printf("  -> CONTRA-ATAQUE CRÍTICO! Você puniu o chefe causando %d de dano!\n", dano_esquiva);
 
 			} else {
-				int dano = b->ataque + (rand() % 4) - 1;
+				int dano_base = b->ataque + (rand() % 4) - 1;
+				int dano = dano_base - j->defesa;
 				if (dano < 1) dano = 1;
 				j->vida -= dano;
-				printf("  -> FALHOU! %s causou %d de dano!\n", b->nome, dano);
+				printf("  -> FALHOU! %s causou %d de dano! (Sua defesa mitigou %d)\n", b->nome, dano, j->defesa);
 			}
 		} else {
 			printf("  -> Opção inválida!\n");
 		}
 
-		//Verificar mudança de fase
 		if (b->vida <= 0 && b->fase < b->fases_totais) {
 			b->fase++;
 			b->vida = b->vida_max / b->fases_totais;
 			b->ataque += 3;
+			b->defesa += 2;
 			printf("\n  !!! %s TRANSFORMA! (Fase %d) !!!\n", b->nome, b->fase);
-			printf("  O ar fica pesado... os olhos de %s brilham em vermelho.\n", b->nome);
+			printf("  O ar fica pesado... os olhos de %s brilham em vermelho e sua armadura enrijece.\n", b->nome);
 			sleep(2);
 		}
 
-		//Ação do boss
 		if (b->vida > 0 && j->vida > 0 && !esquiva_bem_sucedida) {
-			int dano = b->ataque + (rand() % 6) - 2;
+			int dano_base = b->ataque + (rand() % 6) - 2;
+			int dano = dano_base - j->defesa;
 			if (dano < 1) dano = 1;
 			j->vida -= dano;
-			printf("  <- %s atacou! Você sofreu %d de dano.\n", b->nome, dano);
+			printf("  <- %s atacou! Você sofreu %d de dano. (Sua defesa mitigou %d)\n", b->nome, dano, j->defesa);
 		}
 	}
 
@@ -145,7 +147,7 @@ void loja(Jogador *j) {
 	itens[1].efeito = 5;
 	strcpy(itens[2].nome, "Armadura de Ferro");
 	itens[2].preco = 50;
-	itens[2].efeito = 30;
+	itens[2].efeito = 4;
 	strcpy(itens[3].nome, "Poção Grande");
 	itens[3].preco = 40;
 	itens[3].efeito = 100;
@@ -156,7 +158,11 @@ void loja(Jogador *j) {
 	printf("\n  ===== LOJA DO VAGABUNDO (PROMOÇÃO!) =====\n");
 	printf("  Ouro disponível: %d\n\n", j->ouro);
 	for (int i = 0; i < 5; i++) {
-		printf("  %d) %s - %d ouro (efeito: +%d)\n", i+1, itens[i].nome, itens[i].preco, itens[i].efeito);
+		if (i == 2) {
+			printf("  %d) %s - %d ouro (efeito: +%d DEF)\n", i+1, itens[i].nome, itens[i].preco, itens[i].efeito);
+		} else {
+			printf("  %d) %s - %d ouro (efeito: +%d %s)\n", i+1, itens[i].nome, itens[i].preco, itens[i].efeito, (i==0||i==3)?"HP":"ATQ");
+		}
 	}
 	printf("  0) Sair\n  Escolha: ");
 	int op;
@@ -172,10 +178,9 @@ void loja(Jogador *j) {
 			} else if (op == 2 || op == 5) {
 				j->ataque += itens[op-1].efeito;
 				printf("  -> Você comprou %s! (+%d ATQ)\n", itens[op-1].nome, itens[op-1].efeito);
-			} else {
-				j->vida_max += itens[op-1].efeito;
-				j->vida += itens[op-1].efeito;
-				printf("  -> Você comprou %s! (+%d HP MAX)\n", itens[op-1].nome, itens[op-1].efeito);
+			} else if (op == 3) {
+				j->defesa += itens[op-1].efeito;
+				printf("  -> Você comprou %s! (+%d DEF)\n", itens[op-1].nome, itens[op-1].efeito);
 			}
 		} else {
 			printf("  -> Ouro insuficiente!\n");
@@ -190,12 +195,12 @@ void npc(Jogador *j, int qual) {
 	strcpy(npcs[0].dica, "Dica: Use a esquiva frequentemente! Ela agora te cura e abre brechas para golpes destrutivos.");
 
 	strcpy(npcs[1].nome, "Vaga Lúmina");
-	strcpy(npcs[1].dialogo, "Eu... eu era guardiã. Mas o Senhor das Somas me corrompeu. Fuja dele. Ele sente o medo...");
-	strcpy(npcs[1].dica, "Dica: A loja reduziu os preços. Aproveite para estocar poções grandes.");
+	strcpy(npcs[1].dialogo, "Eu... eu era guardiã. Mas o Senhor das Sombras me corrompeu. Fuja dele. Ele sente o medo...");
+	strcpy(npcs[1].dica, "Dica: Compre a Armadura de Ferro na fogueira para aumentar sua Defesa. O próximo oponente bate muito forte.");
 
 	strcpy(npcs[2].nome, "Mercador Sombra");
-	strcpy(npcs[2].dialogo, "Ouro... eu aceito ouro. Mas saiba que cada moeda que gaste aqui, uma parte de sua alma fica presa a este lugar.");
-	strcpy(npcs[2].dica, "Dica: A lâmina sombria custa menos agora e vai te dar uma força tremenda.");
+	strcpy(npcs[2].dialogo, "Ouro... eu aceito ouro. Mas o verdadeiro perigo despertou abaixo de nós. O Senhor das Sombras não pode ser ferido facilmente.");
+	strcpy(npcs[2].dica, "Dica: A defesa do Boss Final mitiga o seu dano base. Use poções com sabedoria.");
 
 	printf("\n  === %s ===\n", npcs[qual].nome);
 	printf("  \"%s\"\n", npcs[qual].dialogo);
@@ -204,12 +209,10 @@ void npc(Jogador *j, int qual) {
 	getchar();
 }
 
-//MAIN
 int main() {
 	srand(time(NULL));
 	int opcao1 = -1;
 
-	//MENU
 	while (opcao1 < 1 || opcao1 > 3) {
 		printf("\n  !Masmorra do Terror!\n");
 		printf("  1 : Iniciar\n");
@@ -223,7 +226,6 @@ int main() {
 		}
 	}
 
-	//SAIR
 	if (opcao1 == 3) {
 		printf("\n  Saindo do jogo...\n");
 		printf("  Cancelar? (1 para cancelar): ");
@@ -238,17 +240,14 @@ int main() {
 		}
 	}
 
-	//DIFICULDADE
-	int dificuldade;
+	int dificuldade = 2;
 	if (opcao1 == 2) {
 		printf("\n  1) Fácil\n  2) Normal\n  3) Pesadelo\n  Dificuldade: ");
 		scanf("%d", &dificuldade);
 		getchar();
-	} else {
-		dificuldade = 2;
+		opcao1 = 1;
 	}
 
-	//CRIAR JOGADOR
 	Jogador jogador;
 	printf("\n  Qual é o seu nome, herói? ");
 	scanf("%s", jogador.nome);
@@ -257,6 +256,7 @@ int main() {
 	jogador.vida_max = 120;
 	jogador.vida = 120;
 	jogador.ataque = 15;
+	jogador.defesa = 2;
 	jogador.ouro = 100;
 	jogador.pocoes = 4;
 
@@ -264,11 +264,13 @@ int main() {
 		jogador.vida_max = 160;
 		jogador.vida = 160;
 		jogador.ataque = 20;
+		jogador.defesa = 4;
 		jogador.ouro = 150;
 	} else if (dificuldade == 3) {
 		jogador.vida_max = 90;
 		jogador.vida = 90;
 		jogador.ataque = 11;
+		jogador.defesa = 0;
 	}
 
 	printf("\n  ================================\n");
@@ -277,17 +279,16 @@ int main() {
 	printf("  ================================\n");
 	sleep(2);
 
-	//ATO 1
 	printf("\n  Você desce pelos corredores de pedra. O cheiro de cinzas é insuportável...\n");
 	sleep(2);
 	npc(&jogador, 0);
 
-	//BOSS 1
 	Boss boss1;
 	strcpy(boss1.nome, "Guardião das Cinzas");
 	boss1.vida_max = 100;
 	boss1.vida = 100;
 	boss1.ataque = 11;
+	boss1.defesa = 1;
 	boss1.fase = 1;
 	boss1.fases_totais = 2;
 	strcpy(boss1.frase, "Você ousa pisar em meu domínio? As cinzas de mil heróis alimentam minha fúria!");
@@ -297,42 +298,42 @@ int main() {
 		boss1.vida_max = 140;
 		boss1.vida = 140;
 		boss1.ataque = 16;
+		boss1.defesa = 3;
 	}
 
 	if (!combate(&jogador, &boss1)) {
 		printf("\n  GAME OVER. A Masmorra do Terror reclama mais uma alma.\n");
 		return 0;
 	}
+
 	jogador.ouro += 60;
-	printf("\n  [Você encontrou 60 ouro e 1 Poção de Vida!]\n");
 	jogador.pocoes++;
 
-	//ATO 2
 	sleep(1);
 	printf("\n  Um brilho fraco se move entre as sombras...\n");
 	sleep(2);
 	npc(&jogador, 1);
 
-	//LOJA
 	printf("\n  Um acampamento abandonado. Uma fogueira ainda queima.\n");
 	printf("  Uma voz gutural: 'Compre, antes que a escuridão tome tudo...'\n");
 	loja(&jogador);
 
-	//BOSS 2
 	Boss boss2;
 	strcpy(boss2.nome, "A Lâmina Sanguinária");
 	boss2.vida_max = 130;
 	boss2.vida = 130;
 	boss2.ataque = 14;
+	boss2.defesa = 3;
 	boss2.fase = 1;
 	boss2.fases_totais = 1;
-	strcpy(boss2.frase, "Sangue... sinto o cheiro do seu sangue quente correndo nas veias!");
+	strcpy(boss2.frase, "Sangue... sinto o cheiro do seu sangue quente correndo nas veins!");
 	strcpy(boss2.frase_morte, "Minha própria lâmina... me traiu...");
 
 	if (dificuldade == 3) {
 		boss2.vida_max = 180;
 		boss2.vida = 180;
 		boss2.ataque = 20;
+		boss2.defesa = 5;
 	}
 
 	if (!combate(&jogador, &boss2)) {
@@ -340,11 +341,48 @@ int main() {
 		return 0;
 	}
 
-	//FINAL DO JOGO
-	printf("\n  ================================================\n");
-	printf("  PARABÉNS! Você derrotou os males da Masmorra!\n");
-	printf("  Você escapou com %d de ouro e sua alma intacta.\n", jogador.ouro);
-	printf("  ================================================\n");
+	jogador.ouro += 100;
+	printf("\n  [Você derrotou a Lâmina! Encontrou +100 moedas de ouro no altar profanado.]\n");
+	sleep(2);
 
+	npc(&jogador, 2);
+
+	printf("\n  Uma última chance de se preparar na fogueira moribunda...\n");
+	loja(&jogador);
+
+	Boss bossFinal;
+	strcpy(bossFinal.nome, "O Senhor das Sombras");
+	bossFinal.vida_max = 160;
+	bossFinal.vida = 160;
+	bossFinal.ataque = 19;
+	bossFinal.defesa = 6;
+	bossFinal.fase = 1;
+	bossFinal.fases_totais = 2;
+
+	strcpy(bossFinal.frase, "A escuridão é eterna, herói. Sua pequena chama se apagará agora!");
+	strcpy(bossFinal.frase_morte, "Impossível... a luz... me consome...");
+	if (dificuldade == 3) {
+		bossFinal.vida_max = 220;
+		bossFinal.vida = 220;
+		bossFinal.ataque = 26;
+		bossFinal.defesa = 10;
+	}
+	if (!combate(&jogador, &bossFinal)) {
+		printf("\n  =============================================================\n");
+		printf("  FIM DE JOGO: A ESCURIDÃO TRIUNFOU\n");
+		printf("  =============================================================\n");
+		printf("  O Senhor das Sombras ergue seu corpo inerte.\n");
+		printf("  Seu nome, %s, será esquecido e apagado dos livros de história.\n", jogador.nome);
+		printf("  A masmorra expande seus limites, consumindo o reino vizinho em trevas perpétuas.\n");
+		printf("  Você falhou...\n");
+		return 0;
+	}
+	printf("\n  =============================================================\n");
+	printf("  PARABÉNS! VOCÊ DETONOU O SENHOR DAS SOMBRAS!\n");
+	printf("  =============================================================\n");
+	printf("  Com um golpe final, as correntes de sombras que prendiam o altar se quebram.\n");
+	printf("  O teto da masmorra racha, deixando um feixe de luz solar iluminar o salão pela primeira vez.\n");
+	printf("  %s purificou o núcleo corrompido e escapou carregando %d moedas de ouro.\n", jogador.nome, jogador.ouro);
+	printf("  O reino está a salvo. Sua lenda acaba de começar!\n");
 	return 0;
 }
